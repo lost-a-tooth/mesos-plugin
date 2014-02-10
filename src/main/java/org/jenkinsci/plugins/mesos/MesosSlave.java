@@ -16,21 +16,21 @@ package org.jenkinsci.plugins.mesos;
 
 import hudson.Extension;
 import hudson.model.Computer;
-import hudson.model.Descriptor;
 import hudson.model.Descriptor.FormException;
 import hudson.model.Hudson;
 import hudson.model.Slave;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.ComputerLauncher;
-import hudson.slaves.RetentionStrategy;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import net.sf.json.JSONObject;
+
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.StaplerRequest;
 
 public class MesosSlave extends Slave {
 
@@ -94,9 +94,25 @@ public class MesosSlave extends Slave {
 
   @Extension
   public static class DescriptorImpl extends SlaveDescriptor {
+
+	int numExecutors;
+    String labelString;
+    int slaveCpus;
+    int slaveMem;
+    int executorCpus;
+    int executorMem;
+    int idleTerminationMinutes;
+
     @Override
     public String getDisplayName() {
       return "Mesos Slave";
+    }
+
+    @Override
+    public boolean configure(StaplerRequest request, JSONObject object) throws FormException {
+      numExecutors = object.getInt("maxExecutors");
+      save();
+      return super.configure(request, object);
     }
   }
 

@@ -17,13 +17,10 @@ package org.jenkinsci.plugins.mesos;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
-import hudson.model.Descriptor.FormException;
 import hudson.model.Hudson;
 import hudson.model.Label;
 import hudson.model.Node;
-import hudson.model.Node.Mode;
 import hudson.slaves.Cloud;
-import hudson.slaves.NodeProperty;
 import hudson.slaves.NodeProvisioner.PlannedNode;
 import hudson.util.FormValidation;
 
@@ -42,13 +39,13 @@ import java.util.logging.Logger;
 import javax.servlet.ServletException;
 
 import jenkins.model.Jenkins;
+
 import net.sf.json.JSONObject;
 
 import org.apache.mesos.MesosNativeLibrary;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
 
 public class MesosCloud extends Cloud {
 
@@ -64,8 +61,7 @@ public class MesosCloud extends Cloud {
   private final int maxExecutors;
   private final int executorMem; // MB.
   private final int idleTerminationMinutes;
-
-  private final String labelString = "mesos";
+  private final String slaveLabels;
 
   private static String staticMaster;
 
@@ -73,7 +69,7 @@ public class MesosCloud extends Cloud {
 
   @DataBoundConstructor
   public MesosCloud(String nativeLibraryPath, String master, String description, int slaveCpus,
-      int slaveMem, int maxExecutors, int executorCpus, int executorMem, int idleTerminationMinutes)
+      int slaveMem, int maxExecutors, int executorCpus, int executorMem, int idleTerminationMinutes, String slaveLabels)
           throws NumberFormatException {
     super("MesosCloud");
 
@@ -86,6 +82,7 @@ public class MesosCloud extends Cloud {
     this.executorCpus = executorCpus;
     this.executorMem = executorMem;
     this.idleTerminationMinutes = idleTerminationMinutes;
+    this.slaveLabels = slaveLabels;
 
     // First, we attempt to load the library from the given path.
     // If unsuccessful, we attempt to load using 'MesosNativeLibrary.load()'.
@@ -113,6 +110,7 @@ public class MesosCloud extends Cloud {
 
     staticMaster = master;
   }
+
 
   @Override
   public Collection<PlannedNode> provision(Label label, int excessWorkload) {
@@ -142,7 +140,7 @@ public class MesosCloud extends Cloud {
 
   private MesosSlave doProvision(int numExecutors) throws Descriptor.FormException, IOException {
     String name = "mesos-jenkins-" + UUID.randomUUID().toString();
-    return new MesosSlave(name, numExecutors, labelString, slaveCpus, slaveMem,
+    return new MesosSlave(name, numExecutors, slaveLabels, slaveCpus, slaveMem,
         executorCpus, executorMem, idleTerminationMinutes);
   }
 
@@ -153,7 +151,7 @@ public class MesosCloud extends Cloud {
     // matches "mesos".
     // TODO(vinod): The framework may not have the resources necessary
     // to start a task when it comes time to launch the slave.
-    return label.matches(Label.parse(labelString));
+    return label.matches(Label.parse(slaveLabels));
   }
 
   public String getNativeLibraryPath() {
@@ -179,6 +177,34 @@ public class MesosCloud extends Cloud {
   public void setDescription(String description) {
     this.description = description;
   }
+  
+  public String getSlaveLabels() {
+	return this.slaveLabels;
+  }
+
+  public int getSlaveMem() {
+    return slaveMem;
+  }
+
+  public int getExecutorCpus() {
+    return executorCpus;
+  }
+
+  public int getMaxExecutors() {
+    return maxExecutors;
+  }
+
+  public int getExecutorMem() {
+    return executorMem;
+  }
+
+  public int getIdleTerminationMinutes() {
+    return idleTerminationMinutes;
+  }
+
+  public int getSlaveCpus() {
+    return slaveCpus;
+  }
 
   @Override
   public DescriptorImpl getDescriptor() {
@@ -190,10 +216,19 @@ public class MesosCloud extends Cloud {
   }
 
   @Extension
-  public static class DescriptorImpl extends Descriptor<Cloud> {
+  public static final class DescriptorImpl extends Descriptor<Cloud> {
     private String nativeLibraryPath;
     private String master;
     private String description;
+
+    private int slaveCpus;
+    private int slaveMem; // MB.
+    private int executorCpus;
+    private int maxExecutors;
+    private int executorMem; // MB.
+    private int idleTerminationMinutes;
+    private String slaveLabels;
+    
 
     @Override
     public String getDisplayName() {
@@ -205,6 +240,14 @@ public class MesosCloud extends Cloud {
       nativeLibraryPath = object.getString("nativeLibraryPath");
       master = object.getString("master");
       description = object.getString("description");
+
+      slaveCpus = object.getInt("slaveCpus");
+      slaveMem = object.getInt("slaveMem");
+      executorCpus = object.getInt("executorCpus");
+      maxExecutors = object.getInt("maxExecutors");
+      executorMem = object.getInt("executorMem");
+      idleTerminationMinutes = object.getInt("idleTerminationMinutes");
+      slaveLabels = object.getString("slaveLabels");
       save();
       return super.configure(request, object);
     }
